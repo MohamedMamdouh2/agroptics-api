@@ -8,8 +8,8 @@ A high-performance, modular FastAPI-based REST API for satellite imagery process
 - **Background Tasking**: Non-blocking processing for large datasets.
 - **Local & URL Sources**: Support for local field folders and external JSON-formatted satellite data.
 - **Dual Processing Paths**: 
-    - **Local**: Processes high-resolution Planet 8-band imagery from the `Input/` directory.
-    - **URL**: Fetches and processes external satellite data responses.
+    - **Local**: Processes high-resolution Planet 8-band imagery from the project root or `Input/` directory.
+    - **URL**: Fetches and processes external satellite data responses or GeoTIFF URLs.
 
 ## 🚀 Installation & Setup
 
@@ -21,20 +21,20 @@ A high-performance, modular FastAPI-based REST API for satellite imagery process
    ```
 
 2. **Directory Structure**:
-   Ensure the following structure is maintained:
+   The project follows this structure:
    ```text
    AgropticsAPI2/
-   ├── Input/                 # Put raw field folders here
-   │   └── Field_Test/        # Example field
-   │       └── 20250329.../   # Date folder with .tif files
-   ├── exports/               # All generated results go here
+   ├── api_server.py          # FastAPI server entry point
    ├── Processing/            # Core processing modules
+   │   ├── run_all.py         # Master pipeline script
    │   ├── calculate_indices.py
    │   ├── generate_timeseries.py
-   │   ├── calculate_water_balance.py
-   │   └── Run.py             # Master pipeline logic
-   ├── api_server.py          # FastAPI server
-   └── requirements.txt
+   │   └── calculate_water_balance.py
+   ├── exports/               # Generated GeoTIFFs and JSON reports
+   ├── api_uploads/           # Temporary storage for local uploads
+   ├── api_downloads/         # Temporary storage for URL downloads
+   ├── requirements.txt
+   └── .env.example
    ```
 
 3. **Running the Server**:
@@ -52,41 +52,35 @@ Once the server is running, visit:
 
 ### Core Endpoints
 
-| Endpoint | Method | Payload | Description |
+| Endpoint | Method | Params | Description |
 |----------|--------|---------|-------------|
-| `/api/submit-job` | `POST` | `field_name` | Registers a job for a folder in `Input/` |
+| `/api/submit-job` | `POST` | `field_name` or `source_url` | Registers a processing job |
 | `/api/process-job/{id}`| `POST` | - | Starts background processing for the job |
 | `/api/status/{id}` | `GET` | - | Returns progress (0-100%) and final results path |
 | `/api/jobs` | `GET` | - | Lists recent job history |
 
 ## 🧪 Testing the API (Example)
 
-You can test the API using the provided `Field_Test` data:
+### 1. Local Field Processing
+If you have a folder named `Field_10` in the root:
+```bash
+curl -X POST "http://localhost:8000/api/submit-job?field_name=Field_10"
+```
 
-1. **Submit Job**:
-   ```bash
-   curl -X POST "http://localhost:8000/api/submit-job?field_name=Field_Test"
-   ```
-   *Response*: `{"job_id": "...", "status": "pending"}`
-
-2. **Start Processing**:
-   ```bash
-   curl -X POST "http://localhost:8000/api/process-job/<JOB_ID>"
-   ```
-
-3. **Check Results**:
-   ```bash
-   curl "http://localhost:8000/api/status/<JOB_ID>"
-   ```
+### 2. URL-based Processing
+```bash
+curl -X POST "http://localhost:8000/api/submit-job?source_url=https://example.com/data.tif"
+```
 
 ## 🛠 Backend Integration Notes
 
 - **Database**: Uses a lightweight `api_database.db` (SQLite) for job tracking.
-- **Encoding**: Output logs are sanitized for Windows/Linux cross-compatibility (ASCII-friendly).
+- **Callback System**: For `url` jobs, the system automatically packages results as a ZIP and POSTs them back to the original `source_url` (if supported).
 - **Extensibility**: 
     - To add new indices, modify `Processing/calculate_indices.py`.
-    - To change SWB parameters, update `Processing/cropParameters_updated.json` and `field_config.json`.
+    - To change SWB parameters, update `Processing/cropParameters_updated.json`.
 - **Error Handling**: Detailed error messages are captured in the job status if a stage fails.
 
 ---
 **Agroptics Engineering Team** | *Propelling Precision Agriculture*
+
